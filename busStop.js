@@ -1,6 +1,6 @@
 const TECHSWITCH_STOP = "490008660N";
 const IMPERIAL_POSTCODE = "SW72AZ";
-const EUSTON_POSTCODE = "NW12RT"
+const EUSTON_POSTCODE = "NW12RT";
 const POSTCODES_API = "http://api.postcodes.io/postcodes/";
 const NUM_BUSES = 5;
 const SEARCH_RADIUS = 500;
@@ -41,19 +41,31 @@ fetch(POSTCODES_API + EUSTON_POSTCODE)
     )
   )
   .then((response) => response.json())
-  .then((json) =>
-    json.stopPoints
+  .then((json) => {
+    const stops = json.stopPoints
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 2)
-      .map((element) => element.naptanId)
-  )
+      .map(({ naptanId, indicator, distance }) => ({
+        naptanId,
+        indicator,
+        distance,
+      }));
+    stops.forEach(
+      (element) => (element["distance"] = Math.floor(element["distance"]))
+    );
+    return stops;
+  })
   .then((stops) => {
-    fetch(getStopArrivalsAPI(stops[0]))
+    console.log(`Stop 1: ${stops[0].indicator}, distance ${stops[0].distance}`);
+    fetch(getStopArrivalsAPI(stops[0].naptanId))
       .then((response) => response.json())
       .then((json) => logNextNBuses(json, NUM_BUSES))
-      .then(
-        fetch(getStopArrivalsAPI(stops[1]))
+      .then(() => {
+        console.log(
+          `Stop 2: ${stops[1].indicator}, distance ${stops[1].distance}`
+        );
+        fetch(getStopArrivalsAPI(stops[1].naptanId))
           .then((response) => response.json())
-          .then((json) => logNextNBuses(json, NUM_BUSES))
-      );
+          .then((json) => logNextNBuses(json, NUM_BUSES));
+      });
   });
