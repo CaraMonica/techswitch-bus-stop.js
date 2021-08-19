@@ -1,6 +1,9 @@
 const TECHSWITCH_STOP = "490008660N";
 const IMPERIAL_POSTCODE = "SW72AZ";
+const EUSTON_POSTCODE = "NW12RT"
 const POSTCODES_API = "http://api.postcodes.io/postcodes/";
+const NUM_BUSES = 5;
+const SEARCH_RADIUS = 500;
 
 const fetch = require("node-fetch");
 
@@ -26,10 +29,16 @@ const logNextNBuses = (buses, n) =>
       console.log(element);
     });
 
-fetch(POSTCODES_API + IMPERIAL_POSTCODE)
+fetch(POSTCODES_API + EUSTON_POSTCODE)
   .then((response) => response.json())
   .then((json) =>
-    fetch(getStopsInAreaAPI(json.result.latitude, json.result.longitude, 1000))
+    fetch(
+      getStopsInAreaAPI(
+        json.result.latitude,
+        json.result.longitude,
+        SEARCH_RADIUS
+      )
+    )
   )
   .then((response) => response.json())
   .then((json) =>
@@ -41,10 +50,10 @@ fetch(POSTCODES_API + IMPERIAL_POSTCODE)
   .then((stops) => {
     fetch(getStopArrivalsAPI(stops[0]))
       .then((response) => response.json())
-      .then((json) => logNextNBuses(json, 5))
+      .then((json) => logNextNBuses(json, NUM_BUSES))
       .then(
         fetch(getStopArrivalsAPI(stops[1]))
           .then((response) => response.json())
-          .then((json) => logNextNBuses(json, 5))
+          .then((json) => logNextNBuses(json, NUM_BUSES))
       );
   });
