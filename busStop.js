@@ -5,6 +5,7 @@ const POSTCODES_API = "http://api.postcodes.io/postcodes/";
 const NUM_BUSES = 5;
 const SEARCH_RADIUS = 500;
 
+const readline = require("readline-sync");
 const fetch = require("node-fetch");
 
 const getStopArrivalsAPI = (stopID) =>
@@ -12,6 +13,14 @@ const getStopArrivalsAPI = (stopID) =>
 
 const getStopsInAreaAPI = (lat, lon, radius) =>
   `https://api.tfl.gov.uk/StopPoint/?lat=${lat}&lon=${lon}&stopTypes=NaptanPublicBusCoachTram&radius=${radius}`;
+
+const convertSecsToMins = (seconds) =>
+  `${Math.floor(seconds / 60)} min and ${seconds % 60} s`;
+
+const getUserInput = (message) => {
+  console.log(message);
+  return readline.prompt();
+};
 
 const logNextNBuses = (buses, n) =>
   buses
@@ -23,13 +32,13 @@ const logNextNBuses = (buses, n) =>
       timeToStation,
     }))
     .forEach((element) => {
-      element["timeToStation"] = `${Math.floor(
-        element["timeToStation"] / 60
-      )} min: ${Math.floor(element["timeToStation"] % 60)}s`;
-      console.log(element);
+      element.timeToStation = convertSecsToMins(element.timeToStation);
+      console.log(`The ${element.lineName} to ${element.destinationName} in ${element.timeToStation}`);
     });
 
-fetch(POSTCODES_API + EUSTON_POSTCODE)
+const postcode = getUserInput("\nEnter Postcode with no spaces:");
+
+fetch(POSTCODES_API + postcode)
   .then((response) => response.json())
   .then((json) =>
     fetch(
@@ -51,19 +60,17 @@ fetch(POSTCODES_API + EUSTON_POSTCODE)
         distance,
       }));
     stops.forEach(
-      (element) => (element["distance"] = Math.floor(element["distance"]))
+      (element) => (element.distance = Math.floor(element.distance))
     );
     return stops;
   })
   .then((stops) => {
-    console.log(`Stop 1: ${stops[0].indicator}, distance ${stops[0].distance}`);
+    console.log(`\n${stops[0].indicator}, distance ${stops[0].distance} m`);
     fetch(getStopArrivalsAPI(stops[0].naptanId))
       .then((response) => response.json())
       .then((json) => logNextNBuses(json, NUM_BUSES))
       .then(() => {
-        console.log(
-          `Stop 2: ${stops[1].indicator}, distance ${stops[1].distance}`
-        );
+        console.log(`\n${stops[1].indicator}, distance ${stops[1].distance} m`);
         fetch(getStopArrivalsAPI(stops[1].naptanId))
           .then((response) => response.json())
           .then((json) => logNextNBuses(json, NUM_BUSES));
