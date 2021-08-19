@@ -39,12 +39,12 @@ fetch(POSTCODES_API + IMPERIAL_POSTCODE)
       .map((element) => element.naptanId)
   )
   .then((stops) => {
-      console.log(stops[0])
-      fetch(getStopArrivalsAPI(stops[0]))})
-  .then((response) => response.json())
-  .then((json) => logNextNBuses(json, 5));
-
-
-// fetch(getStopArrivalsAPI(TECHSWITCH_STOP))
-//   .then((response) => response.json())
-//   .then((json) => logNextNBuses(json, 5));
+    fetch(getStopArrivalsAPI(stops[0]))
+      .then((response) => response.json())
+      .then((json) => logNextNBuses(json, 5))
+      .then(
+        fetch(getStopArrivalsAPI(stops[1]))
+          .then((response) => response.json())
+          .then((json) => logNextNBuses(json, 5))
+      );
+  });
