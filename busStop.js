@@ -1,3 +1,6 @@
+const readline = require("readline-sync");
+const fetch = require("node-fetch");
+
 const TECHSWITCH_STOP = "490008660N";
 const IMPERIAL_POSTCODE = "SW72AZ";
 const EUSTON_POSTCODE = "NW12RT";
@@ -5,9 +8,6 @@ const POSTCODES_API = "http://api.postcodes.io/postcodes/";
 const NUM_BUSES = 5;
 const MIN_RADIUS = 100;
 const MAX_RADIUS = 600;
-
-const readline = require("readline-sync");
-const fetch = require("node-fetch");
 
 const getStopArrivalsAPI = (stopID) =>
   `https://api.tfl.gov.uk/StopPoint/${stopID}/Arrivals`;
@@ -43,20 +43,19 @@ const logNextNArrivals = (arrivals, n) => {
     });
 };
 
+const isValidRadius = (radius) => {
+  if (isNaN(radius)) throw "not a number";
+  if (radius < MIN_RADIUS) throw `radius must not be less than ${MIN_RADIUS}`;
+  if (radius > MAX_RADIUS)
+    throw `radius must not be greater than ${MAX_RADIUS}`;
+};
+
 const getUserRadius = () => {
+  const message = `\nEnter radius to search in meters (${MIN_RADIUS}-${MAX_RADIUS}):`;
   while (true) {
-    let radius;
     try {
-      radius = parseInt(
-        getUserInput(
-          `\nEnter radius to search in meters (${MIN_RADIUS}-${MAX_RADIUS}):`
-        )
-      );
-      if (isNaN(radius)) throw "not a number";
-      if (radius < MIN_RADIUS)
-        throw `radius must not be less than ${MIN_RADIUS}`;
-      if (radius > MAX_RADIUS)
-        throw `radius must not be greater than ${MAX_RADIUS}`;
+      const radius = parseInt(getUserInput(message));
+      isValidRadius(radius);
       return radius;
     } catch (err) {
       console.log(err);
