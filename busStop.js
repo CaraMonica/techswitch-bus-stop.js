@@ -28,10 +28,10 @@ const getUserInput = message => {
 
 const getUserYesOrNo = message => {
   while (true) {
-    const validAnswers = ["Y", "y", "N", "n"];
+    const validAnswers = ["y", "n"];
     try {
-      const answer = getUserInput(message);
-      if (validAnswers.includes(answer)) return answer.toLowerCase();
+      const answer = getUserInput(message).toLowerCase();
+      if (validAnswers.includes(answer)) return answer;
       throw "Please type y for yes, or n for no.";
     } catch (err) {
       console.log(err);
@@ -79,14 +79,14 @@ const getUserRadius = () => {
   }
 };
 
-const validateLondonPostCode = json => {
+const validateLondonPostcode = json => {
   if (json.status > 300) throw json.error;
   if (json.result.region !== "London") throw "Postcode not in London";
 };
 
 const getLatAndLong = json => {
   try {
-    validateLondonPostCode(json);
+    validateLondonPostcode(json);
     return {
       latitude: json.result.latitude,
       longitude: json.result.longitude,
@@ -117,6 +117,11 @@ const getNClosestStops = (json, travelInfo, n) => {
       indicator,
       distance: Math.floor(distance),
     }));
+
+  if (!travelInfo.stops.length) {
+    throw "No stops in this area.";
+  }
+
   return travelInfo;
 };
 
@@ -150,40 +155,46 @@ const logDirections = json => {
     console.log("Directions not available.");
     return;
   }
+
   console.log(`\nTotal journey time: ${json.journeys[0].duration} minutes`);
+
   json.journeys[0].legs.map(leg => {
     let i = 0;
     console.log(`\nLeg ${++i}: ${leg.instruction.detailed}`);
+
     leg.instruction.steps.map(step => {
-      console.log(`-> ${step.descriptionHeading}${step.description}`);
+      console.log(`-> ${step.descriptionHeading.trim()} ${step.description}`);
     });
   });
 };
 
-const fetchJourneyInfo = travelInfo =>
-  fetch(
-    getJourneyAPI(
-      travelInfo.latitude,
-      travelInfo.longitude,
-      travelInfo.stops[0].id
+const fetchJourneyInfo = travelInfo => {
+  const answer = getUserYesOrNo(
+    `\nWould you like directions to ${travelInfo.stops[0].indicator}? (Y/N)`
+  );
+  if (answer === "y") {
+    return fetch(
+      getJourneyAPI(
+        travelInfo.latitude,
+        travelInfo.longitude,
+        travelInfo.stops[0].id
+      )
     )
-  )
-    .then(response => response.json())
-    .then(json => {
-      logDirections(json);
-    });
+      .then(response => response.json())
+      .then(json => {
+        logDirections(json);
+      });
+  }
 
+  return;
+};
 const runTflApp = () => {
   fetchUserLatAndLong()
     .then(travelInfo => fetchNClosestStops(travelInfo, 2))
     .then(travelInfo => fetchArrivalsAtStops(travelInfo))
-    .then(travelInfo => {
-      const answer = getUserYesOrNo(
-        `\nWould you like directions to ${travelInfo.stops[0].indicator}? (Y/N)`
-      );
-      if (answer === "y") return fetchJourneyInfo(travelInfo);
-    })
-    .catch(console.log);
+    .then(travelInfo => fetchJourneyInfo(travelInfo))
+    .catch(console.log)
+    .finally(() => console.log("\nGoodbye!"));
 };
 
 runTflApp();
