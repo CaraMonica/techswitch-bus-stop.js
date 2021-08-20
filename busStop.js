@@ -38,50 +38,49 @@ const logNextNBuses = (buses, n) =>
       );
     });
 
-const isValidPostcode = (code) => {
-  //   const postcodeRegEx = /[A-Z]{1,2}[0-9]{1,2} ?[0-9][A-Z]{2}/;
-  //   return postcodeRegEx.test(code);
-  return true;
+const getUserLondonPostCodeLatAndLon = async () => {
+  while (true) {
+    try {
+      const postcode = getUserInput("Enter postcode in London:");
+      const json = await fetch(POSTCODES_API + postcode).then((request) =>
+        request.json()
+      );
+      if (json.status > 300) throw json.error;
+      if (json.result.region != "London") throw "Postcode must be in London";
+      return [json.result.latitude, json.result.longitude];
+    } catch (err) {
+      console.log(err);
+    }
+  }
 };
 
-let postcode;
-
-while (true) {
-  try {
-    postcode = getUserInput("Enter postcode in London:");
-    if (isValidPostcode(postcode)) break;
-    else throw "Not a valid postcode.";
-  } catch (err) {
-    console.log(err);
+const getUserRadius = () => {
+  while (true) {
+    let radius;
+    try {
+      radius = parseInt(
+        getUserInput(
+          `\nEnter radius to search in meters (${MIN_RADIUS}-${MAX_RADIUS}):`
+        )
+      );
+      if (isNaN(radius)) throw "not a number";
+      if (radius < MIN_RADIUS)
+        throw `radius must be greater than ${MIN_RADIUS}`;
+      if (radius > MAX_RADIUS) throw `radius must be less than ${MAX_RADIUS}`;
+      return radius;
+    } catch (err) {
+      console.log(err);
+    }
   }
-}
+};
 
-let radius;
-while (true) {
-  try {
-    radius = parseInt(
-      getUserInput(
-        `\nEnter radius to search in meters (${MIN_RADIUS}-${MAX_RADIUS}):`
-      )
-    );
-    if (isNaN(radius)) throw "not a number";
-    else if (radius < MIN_RADIUS)
-      throw `radius must be greater than ${MIN_RADIUS}`;
-    else if (radius > MAX_RADIUS)
-      throw `radius must be less than ${MAX_RADIUS}`;
-    else break;
-  } catch (err) {
-    console.log(err);
-  }
-}
-
-const getPostcodeLatAndLong = (postcode) =>
-  fetch(POSTCODES_API + postcode)
-    .then((response) => response.json())
-    .then((json) => [json.result.latitude, json.result.longitude]);
-
-const getClosestNStopsInArea = async (postcode, radius, n = 2) =>
-  fetch(getStopsInAreaAPI(...(await getPostcodeLatAndLong(postcode)), radius))
+const getClosestNStopsInArea = async (n) =>
+  fetch(
+    getStopsInAreaAPI(
+      ...(await getUserLondonPostCodeLatAndLon()),
+      getUserRadius()
+    )
+  )
     .then((response) => response.json())
     .then((json) =>
       json.stopPoints
@@ -102,9 +101,10 @@ const getArrivalsAtStop = (stop) =>
       logNextNBuses(json, NUM_BUSES);
     });
 
-const getClosestNStopsArrivalInfo = async (postcode, radius, n=2) => {
-    const stops = await getClosestNStopsInArea(postcode, radius, n)
-    stops.forEach(getArrivalsAtStop)
-}
+const getClosestNStopsArrivalInfo = async (n = 2) => {
+  const stops = await getClosestNStopsInArea(n);
+  stops.forEach(getArrivalsAtStop);
+};
 
-getClosestNStopsArrivalInfo(postcode, radius);
+getClosestNStopsArrivalInfo();
+s;
