@@ -108,32 +108,3 @@ const getClosestNStopsArrivalInfo = async (postcode, radius, n=2) => {
 }
 
 getClosestNStopsArrivalInfo(postcode, radius);
-
-// fetch(POSTCODES_API + postcode)
-//   .then((response) => response.json())
-//   .then((json) =>
-//     fetch(
-//       getStopsInAreaAPI(json.result.latitude, json.result.longitude, radius)
-//     )
-//   )
-//   .then((response) => response.json())
-//   .then((json) =>
-//     json.stopPoints
-//       .sort((a, b) => a.distance - b.distance)
-//       .slice(0, 2)
-//       .map(({ naptanId, indicator, distance }) => ({
-//         naptanId,
-//         indicator,
-//         distance: Math.floor(distance),
-//       }))
-//   )
-//   .then((stops) =>
-//     stops.forEach((stop) =>
-//       fetch(getStopArrivalsAPI(stop.naptanId))
-//         .then((response) => response.json())
-//         .then((json) => {
-//           console.log(`\n${stop.indicator}, distance ${stop.distance} m`);
-//           logNextNBuses(json, NUM_BUSES);
-//         })
-//     )
-//   );
