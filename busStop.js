@@ -74,37 +74,33 @@ const getUserRadius = () => {
   }
 };
 
-const getClosestNStopsInArea = async (n) =>
-  fetch(
-    getStopsInAreaAPI(
-      ...(await getUserLondonPostCodeLatAndLon()),
-      getUserRadius()
-    )
-  )
+const getClosestNStopsInArea = (n) =>
+  getUserLondonPostCodeLatAndLon()
+    .then((result) => fetch(getStopsInAreaAPI(...result, getUserRadius())))
     .then((response) => response.json())
-    .then((json) =>
-      json.stopPoints
+    .then((json) => {
+      if (json.stopPoints.length === 0) throw "No bus stops in this area.";
+      return json.stopPoints
         .sort((a, b) => a.distance - b.distance)
         .slice(0, n)
         .map(({ naptanId, indicator, distance }) => ({
           naptanId,
           indicator,
           distance: Math.floor(distance),
-        }))
-    );
+        }));
+    });
 
 const getArrivalsAtStop = (stop) =>
   fetch(getStopArrivalsAPI(stop.naptanId))
     .then((response) => response.json())
     .then((json) => {
       console.log(`\n${stop.indicator}, distance ${stop.distance} m`);
+      if (json.length === 0) throw "No buses due";
       logNextNBuses(json, NUM_BUSES);
-    });
+    })
+    .catch(console.log);
 
-const getClosestNStopsArrivalInfo = async (n = 2) => {
-  const stops = await getClosestNStopsInArea(n);
-  stops.forEach(getArrivalsAtStop);
-};
+const getClosestNStopsArrivalInfo = (n = 2) =>
+  getClosestNStopsInArea(n).then((stops) => stops.forEach(getArrivalsAtStop));
 
 getClosestNStopsArrivalInfo();
-s;
