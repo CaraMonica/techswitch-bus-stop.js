@@ -4,7 +4,7 @@ const EUSTON_POSTCODE = "NW12RT";
 const POSTCODES_API = "http://api.postcodes.io/postcodes/";
 const NUM_BUSES = 5;
 const MIN_RADIUS = 100;
-const MAX_RADIUS = 2000;
+const MAX_RADIUS = 600;
 
 const readline = require("readline-sync");
 const fetch = require("node-fetch");
@@ -23,7 +23,11 @@ const getUserInput = (message) => {
   return readline.prompt();
 };
 
-const logNextNBuses = (buses, n) =>
+const logNextNBuses = (buses, n) => {
+  if (buses.length === 0) {
+    console.log("No buses due");
+    return;
+  }
   buses
     .sort((a, b) => a.timeToStation - b.timeToStation)
     .slice(0, n)
@@ -37,22 +41,22 @@ const logNextNBuses = (buses, n) =>
         `The ${element.lineName} to ${element.destinationName} in ${element.timeToStation}`
       );
     });
-
-const getUserLondonPostCodeLatAndLon = async () => {
-  while (true) {
-    try {
-      const postcode = getUserInput("Enter postcode in London:");
-      const json = await fetch(POSTCODES_API + postcode).then((request) =>
-        request.json()
-      );
-      if (json.status > 300) throw json.error;
-      if (json.result.region != "London") throw "Postcode must be in London";
-      return [json.result.latitude, json.result.longitude];
-    } catch (err) {
-      console.log(err);
-    }
-  }
 };
+
+const getUserLondonPostCodeLatAndLon = () =>
+  fetch(
+    POSTCODES_API + getUserInput("Enter postcode in London:").replace(/\s/g, "")
+  )
+    .then((request) => request.json())
+    .then((json) => {
+      if (json.status > 300) throw json.error;
+      if (json.result.region !== "London") throw "Postcode not in London";
+      return [json.result.latitude, json.result.longitude];
+    })
+    .catch((err) => {
+      console.log(err);
+      return getUserLondonPostCodeLatAndLon();
+    });
 
 const getUserRadius = () => {
   while (true) {
@@ -65,8 +69,9 @@ const getUserRadius = () => {
       );
       if (isNaN(radius)) throw "not a number";
       if (radius < MIN_RADIUS)
-        throw `radius must be greater than ${MIN_RADIUS}`;
-      if (radius > MAX_RADIUS) throw `radius must be less than ${MAX_RADIUS}`;
+        throw `radius must not be less than ${MIN_RADIUS}`;
+      if (radius > MAX_RADIUS)
+        throw `radius must not be greater than ${MAX_RADIUS}`;
       return radius;
     } catch (err) {
       console.log(err);
@@ -95,12 +100,15 @@ const getArrivalsAtStop = (stop) =>
     .then((response) => response.json())
     .then((json) => {
       console.log(`\n${stop.indicator}, distance ${stop.distance} m`);
-      if (json.length === 0) throw "No buses due";
       logNextNBuses(json, NUM_BUSES);
     })
     .catch(console.log);
 
-const getClosestNStopsArrivalInfo = (n = 2) =>
-  getClosestNStopsInArea(n).then((stops) => stops.forEach(getArrivalsAtStop));
+const getClosestNStopsArrivalInfo = (n) =>
+  getClosestNStopsInArea(n)
+    .then((stops) => {
+      stops.forEach(getArrivalsAtStop);
+    })
+    .catch(console.log);
 
-getClosestNStopsArrivalInfo();
+getClosestNStopsArrivalInfo(2);
