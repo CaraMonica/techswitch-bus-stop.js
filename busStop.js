@@ -23,6 +23,19 @@ const getUserInput = (message) => {
   return readline.prompt();
 };
 
+const getYesNo = (message) => {
+  while (true) {
+    const validAnswers = ["Y", "y", "N", "n"];
+    try {
+      const answer = getUserInput(message);
+      if (validAnswers.includes(answer)) return answer.toLowerCase();
+      throw "Please type y for yes, or n for no.";
+    } catch (err) {
+      console.log(err);
+    }
+  }
+};
+
 const logNextNArrivals = (arrivals, n) => {
   if (arrivals.length === 0) {
     console.log("No buses due");
@@ -43,7 +56,7 @@ const logNextNArrivals = (arrivals, n) => {
     });
 };
 
-const isValidRadius = (radius) => {
+const validateRadius = (radius) => {
   if (isNaN(radius)) throw "not a number";
   if (radius < MIN_RADIUS) throw `radius must not be less than ${MIN_RADIUS}`;
   if (radius > MAX_RADIUS)
@@ -55,7 +68,7 @@ const getUserRadius = () => {
   while (true) {
     try {
       const radius = parseInt(getUserInput(message));
-      isValidRadius(radius);
+      validateRadius(radius);
       return radius;
     } catch (err) {
       console.log(err);
@@ -68,15 +81,18 @@ const fetchURLandProcess = (url, func, ...args) =>
     .then((response) => response.json())
     .then((json) => func(json, ...args));
 
-const isValidLondonPostCode = (json) => {
+const validateLondonPostCode = (json) => {
   if (json.status > 300) throw json.error;
   if (json.result.region !== "London") throw "Postcode not in London";
 };
 
 const getLatAndLong = (json) => {
   try {
-    isValidLondonPostCode(json);
-    return [json.result.latitude, json.result.longitude];
+    validateLondonPostCode(json);
+    return {
+      latitude: json.result.latitude,
+      longitude: json.result.longitude,
+    };
   } catch (err) {
     throw err;
   }
@@ -92,8 +108,8 @@ const fetchUserLatAndLong = () =>
     return fetchUserLatAndLong();
   });
 
-const getNClosestStops = (stops, n) =>
-  stops
+const getNClosestStops = (json, userInfo, n) => {
+  userInfo.stops = json.stopPoints
     .sort((a, b) => a.distance - b.distance)
     .slice(0, n)
     .map(({ naptanId, indicator, distance }) => ({
@@ -101,12 +117,16 @@ const getNClosestStops = (stops, n) =>
       indicator,
       distance: Math.floor(distance),
     }));
+  return userInfo;
+};
 
-const fetchNClosestStops = (n) =>
-  fetchUserLatAndLong()
-    .then((result) => fetch(getStopsInAreaAPI(...result, getUserRadius())))
-    .then((response) => response.json())
-    .then((json) => getNClosestStops(json.stopPoints, n));
+const fetchNClosestStops = (userInfo, n) =>
+  fetchURLandProcess(
+    getStopsInAreaAPI(userInfo.latitude, userInfo.longitude, getUserRadius()),
+    getNClosestStops,
+    userInfo,
+    n
+  );
 
 const logStopInfo = (arrivals, stop) => {
   console.log(`\n${stop.indicator}, distance ${stop.distance} m`);
@@ -116,11 +136,15 @@ const logStopInfo = (arrivals, stop) => {
 const fetchArrivalsAtStop = (stop) =>
   fetchURLandProcess(getStopArrivalsAPI(stop.naptanId), logStopInfo, stop);
 
-const getNClosestStopsArrivalInfo = (n) =>
-  fetchNClosestStops(n)
-    .then((stops) => {
-      stops.forEach(fetchArrivalsAtStop);
+const runTflApp = () => {
+  fetchUserLatAndLong()
+    .then((userInfo) => fetchNClosestStops(userInfo, 2))
+    .then((userInfo) => {
+      userInfo.stops.forEach(fetchArrivalsAtStop);
+      return userInfo;
     })
+    .then((userInfo) => console.log)
     .catch(console.log);
+};
 
-getNClosestStopsArrivalInfo(2);
+runTflApp();
