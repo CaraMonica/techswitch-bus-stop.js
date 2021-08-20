@@ -39,8 +39,9 @@ const logNextNBuses = (buses, n) =>
     });
 
 const isValidPostcode = (code) => {
-  const postcodeRegEx = /[A-Z]{1,2}[0-9]{1,2} ?[0-9][A-Z]{2}/;
-  return postcodeRegEx.test(code);
+  //   const postcodeRegEx = /[A-Z]{1,2}[0-9]{1,2} ?[0-9][A-Z]{2}/;
+  //   return postcodeRegEx.test(code);
+  return true;
 };
 
 let postcode;
@@ -59,42 +60,80 @@ let radius;
 while (true) {
   try {
     radius = parseInt(
-      getUserInput(`\nEnter radius to search in meters (${MIN_RADIUS}-${MAX_RADIUS}):`)
+      getUserInput(
+        `\nEnter radius to search in meters (${MIN_RADIUS}-${MAX_RADIUS}):`
+      )
     );
     if (isNaN(radius)) throw "not a number";
-    else if (radius < MIN_RADIUS) throw `radius must be greater than ${MIN_RADIUS}`;
-    else if (radius > MAX_RADIUS) throw `radius must be less than ${MAX_RADIUS}`;
+    else if (radius < MIN_RADIUS)
+      throw `radius must be greater than ${MIN_RADIUS}`;
+    else if (radius > MAX_RADIUS)
+      throw `radius must be less than ${MAX_RADIUS}`;
     else break;
   } catch (err) {
     console.log(err);
   }
 }
 
-fetch(POSTCODES_API + postcode)
-  .then((response) => response.json())
-  .then((json) =>
-    fetch(
-      getStopsInAreaAPI(json.result.latitude, json.result.longitude, radius)
-    )
-  )
-  .then((response) => response.json())
-  .then((json) =>
-    json.stopPoints
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, 2)
-      .map(({ naptanId, indicator, distance }) => ({
-        naptanId,
-        indicator,
-        distance: Math.floor(distance),
-      }))
-  )
-  .then((stops) =>
-    stops.forEach((stop) =>
-      fetch(getStopArrivalsAPI(stop.naptanId))
-        .then((response) => response.json())
-        .then((json) => {
-          console.log(`\n${stop.indicator}, distance ${stop.distance} m`);
-          logNextNBuses(json, NUM_BUSES);
-        })
-    )
-  );
+const getPostcodeLatAndLong = (postcode) =>
+  fetch(POSTCODES_API + postcode)
+    .then((response) => response.json())
+    .then((json) => [json.result.latitude, json.result.longitude]);
+
+const getClosestNStopsInArea = async (postcode, radius, n = 2) =>
+  fetch(getStopsInAreaAPI(...(await getPostcodeLatAndLong(postcode)), radius))
+    .then((response) => response.json())
+    .then((json) =>
+      json.stopPoints
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, n)
+        .map(({ naptanId, indicator, distance }) => ({
+          naptanId,
+          indicator,
+          distance: Math.floor(distance),
+        }))
+    );
+
+const getArrivalsAtStop = (stop) =>
+  fetch(getStopArrivalsAPI(stop.naptanId))
+    .then((response) => response.json())
+    .then((json) => {
+      console.log(`\n${stop.indicator}, distance ${stop.distance} m`);
+      logNextNBuses(json, NUM_BUSES);
+    });
+
+const getClosestNStopsArrivalInfo = async (postcode, radius, n=2) => {
+    const stops = await getClosestNStopsInArea(postcode, radius, n)
+    stops.forEach(getArrivalsAtStop)
+}
+
+getClosestNStopsArrivalInfo(postcode, radius);
+
+// fetch(POSTCODES_API + postcode)
+//   .then((response) => response.json())
+//   .then((json) =>
+//     fetch(
+//       getStopsInAreaAPI(json.result.latitude, json.result.longitude, radius)
+//     )
+//   )
+//   .then((response) => response.json())
+//   .then((json) =>
+//     json.stopPoints
+//       .sort((a, b) => a.distance - b.distance)
+//       .slice(0, 2)
+//       .map(({ naptanId, indicator, distance }) => ({
+//         naptanId,
+//         indicator,
+//         distance: Math.floor(distance),
+//       }))
+//   )
+//   .then((stops) =>
+//     stops.forEach((stop) =>
+//       fetch(getStopArrivalsAPI(stop.naptanId))
+//         .then((response) => response.json())
+//         .then((json) => {
+//           console.log(`\n${stop.indicator}, distance ${stop.distance} m`);
+//           logNextNBuses(json, NUM_BUSES);
+//         })
+//     )
+//   );
