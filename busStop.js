@@ -28,14 +28,9 @@ const getUserInput = message => {
 
 const getUserYesOrNo = message => {
   while (true) {
-    const validAnswers = ["y", "n"];
-    try {
-      const answer = getUserInput(message).toLowerCase();
-      if (validAnswers.includes(answer)) return answer;
-      throw "Please type y for yes, or n for no.";
-    } catch (err) {
-      console.log(err);
-    }
+    const answer = getUserInput(message).toLowerCase();
+    if (["y", "n"].includes(answer)) return answer;
+    console.log("Please type y for yes, or n for no.");
   }
 };
 
