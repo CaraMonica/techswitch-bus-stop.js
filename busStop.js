@@ -9,14 +9,14 @@ const NUM_BUSES = 5;
 const MIN_RADIUS = 100;
 const MAX_RADIUS = 600;
 
-const getStopArrivalsAPI = stopID =>
+const getStopArrivalsApiUrl = stopID =>
   `https://api.tfl.gov.uk/StopPoint/${stopID}/Arrivals`;
 
-const getStopsInAreaAPI = (lat, lon, radius) =>
-  `https://api.tfl.gov.uk/StopPoint/?lat=${lat}&lon=${lon}&stopTypes=NaptanPublicBusCoachTram&radius=${radius}`;
+const getStopsInAreaApiUrl = (latitude, longitude, radius) =>
+  `https://api.tfl.gov.uk/StopPoint/?lat=${latitude}&lon=${longitude}&stopTypes=NaptanPublicBusCoachTram&radius=${radius}`;
 
-const getJourneyAPI = (lat, long, stopId) =>
-  `https://api.tfl.gov.uk/Journey/JourneyResults/${lat},${long}/to/${stopId}`;
+const getJourneyApiUrl = (latitude, longitude, stopId) =>
+  `https://api.tfl.gov.uk/Journey/JourneyResults/${latitude},${longitude}/to/${stopId}`;
 
 const convertSecsToMins = seconds =>
   `${Math.floor(seconds / 60)} minutes, ${seconds % 60} seconds`;
@@ -52,9 +52,9 @@ const logNextNArrivals = (arrivals, n) => {
       destinationName,
       timeToStation: convertSecsToMins(timeToStation),
     }))
-    .forEach(element => {
+    .forEach(arrival => {
       console.log(
-        `The ${element.lineName} to ${element.destinationName} in ${element.timeToStation}`
+        `The ${arrival.lineName} to ${arrival.destinationName} in ${arrival.timeToStation}`
       );
     });
 };
@@ -102,14 +102,14 @@ const fetchUserLatAndLong = () =>
       getUserInput("\nEnter postcode in London:").replace(/\s/g, "")
   )
     .then(response => response.json())
-    .then(json => getLatAndLong(json))
+    .then(getLatAndLong)
     .catch(err => {
       console.log(err);
       return fetchUserLatAndLong();
     });
 
-const getNClosestStops = (json, travelInfo, n) => {
-  travelInfo.stops = json.stopPoints
+const getNClosestStops = (stopPoints, travelInfo, n) => {
+  travelInfo.stops = stopPoints
     .sort((a, b) => a.distance - b.distance)
     .slice(0, n)
     .map(({ id, indicator, distance }) => ({
@@ -118,23 +118,21 @@ const getNClosestStops = (json, travelInfo, n) => {
       distance: Math.floor(distance),
     }));
 
-  if (!travelInfo.stops.length) {
-    throw "No stops in this area.";
-  }
+  if (!travelInfo.stops.length) throw "No stops in this area.";
 
   return travelInfo;
 };
 
 const fetchNClosestStops = (travelInfo, n) =>
   fetch(
-    getStopsInAreaAPI(
+    getStopsInAreaApiUrl(
       travelInfo.latitude,
       travelInfo.longitude,
       getUserRadius()
     )
   )
     .then(response => response.json())
-    .then(json => getNClosestStops(json, travelInfo, n));
+    .then(json => getNClosestStops(json.stopPoints, travelInfo, n));
 
 const logStopInfo = (arrivals, stop) => {
   console.log(`\n${stop.indicator}, distance ${stop.distance} meters`);
@@ -144,22 +142,17 @@ const logStopInfo = (arrivals, stop) => {
 const fetchArrivalsAtStops = travelInfo =>
   Promise.all(
     travelInfo.stops.map(stop =>
-      fetch(getStopArrivalsAPI(stop.id))
+      fetch(getStopArrivalsApiUrl(stop.id))
         .then(response => response.json())
         .then(json => logStopInfo(json, stop))
     )
   ).then(() => travelInfo);
 
-const logDirections = json => {
-  if (!json.journeys) {
-    console.log("Directions not available.");
-    return;
-  }
+const logDirections = journey => {
+  console.log(`\nTotal journey time: ${journey.duration} minutes`);
 
-  console.log(`\nTotal journey time: ${json.journeys[0].duration} minutes`);
-
-  json.journeys[0].legs.map(leg => {
-    let i = 0;
+  let i = 0;
+  journey.legs.map(leg => {
     console.log(`\nLeg ${++i}: ${leg.instruction.detailed}`);
 
     leg.instruction.steps.map(step => {
@@ -168,31 +161,34 @@ const logDirections = json => {
   });
 };
 
-const fetchJourneyInfo = travelInfo => {
-  const answer = getUserYesOrNo(
-    `\nWould you like directions to ${travelInfo.stops[0].indicator}? (Y/N)`
-  );
-  if (answer === "y") {
-    return fetch(
-      getJourneyAPI(
-        travelInfo.latitude,
-        travelInfo.longitude,
-        travelInfo.stops[0].id
-      )
+const fetchJourneyInfo = travelInfo =>
+  fetch(
+    getJourneyApiUrl(
+      travelInfo.latitude,
+      travelInfo.longitude,
+      travelInfo.stops[0].id
     )
-      .then(response => response.json())
-      .then(json => {
-        logDirections(json);
-      });
-  }
+  )
+    .then(response => response.json())
+    .then(json => {
+      if (!json.journeys) {
+        console.log("Directions not available.");
+        return;
+      }
 
-  return;
-};
+      logDirections(json.journeys[0]);
+    });
+
 const runTflApp = () => {
   fetchUserLatAndLong()
     .then(travelInfo => fetchNClosestStops(travelInfo, 2))
-    .then(travelInfo => fetchArrivalsAtStops(travelInfo))
-    .then(travelInfo => fetchJourneyInfo(travelInfo))
+    .then(fetchArrivalsAtStops)
+    .then(travelInfo => {
+      const answer = getUserYesOrNo(
+        `\nWould you like directions to ${travelInfo.stops[0].indicator}? (Y/N)`
+      );
+      if (answer === "y") return fetchJourneyInfo(travelInfo);
+    })
     .catch(console.log)
     .finally(() => console.log("\nGoodbye!"));
 };
