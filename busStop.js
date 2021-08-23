@@ -29,7 +29,11 @@ const getUserInput = message => {
 const getUserYesOrNo = message => {
   while (true) {
     const answer = getUserInput(message).toLowerCase();
-    if (["y", "n"].includes(answer)) return answer;
+
+    if (["y", "n"].includes(answer)) {
+      return answer;
+    }
+
     console.log("Please type y for yes, or n for no.");
   }
 };
@@ -39,30 +43,34 @@ const logNextNArrivals = (arrivals, n) => {
     console.log("No buses due");
     return;
   }
+
   arrivals
     .sort((a, b) => a.timeToStation - b.timeToStation)
     .slice(0, n)
-    .map(({ lineName, destinationName, timeToStation }) => ({
-      lineName,
-      destinationName,
-      timeToStation: convertSecsToMins(timeToStation),
-    }))
-    .forEach(arrival => {
+    .map(arrival => {
       console.log(
-        `The ${arrival.lineName} to ${arrival.destinationName} in ${arrival.timeToStation}`
+        `The ${arrival.lineName} to ${
+          arrival.destinationName
+        } in ${convertSecsToMins(arrival.timeToStation)}`
       );
     });
 };
 
 const validateRadius = radius => {
-  if (isNaN(radius)) throw "not a number";
-  if (radius < MIN_RADIUS) throw `radius must not be less than ${MIN_RADIUS}`;
-  if (radius > MAX_RADIUS)
+  if (isNaN(radius)) {
+    throw "not a number";
+  }
+  if (radius < MIN_RADIUS) {
+    throw `radius must not be less than ${MIN_RADIUS}`;
+  }
+  if (radius > MAX_RADIUS) {
     throw `radius must not be greater than ${MAX_RADIUS}`;
+  }
 };
 
 const getUserRadius = () => {
   const message = `\nEnter radius to search in meters (${MIN_RADIUS}-${MAX_RADIUS}):`;
+
   while (true) {
     try {
       const radius = parseInt(getUserInput(message));
@@ -75,8 +83,12 @@ const getUserRadius = () => {
 };
 
 const validateLondonPostcode = json => {
-  if (json.status > 300) throw json.error;
-  if (json.result.region !== "London") throw "Postcode not in London";
+  if (json.status > 300) {
+    throw json.error;
+  }
+  if (json.result.region !== "London") {
+    throw "Postcode not in London";
+  }
 };
 
 const getLatAndLong = json => {
@@ -170,7 +182,6 @@ const fetchJourneyInfo = travelInfo =>
         console.log("Directions not available.");
         return;
       }
-
       logDirections(json.journeys[0]);
     });
 
